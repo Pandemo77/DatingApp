@@ -1,5 +1,6 @@
 import { Photo } from "./foto"
 
+
 export interface Member {
   id: number
   username: string

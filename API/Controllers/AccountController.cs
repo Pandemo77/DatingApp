@@ -4,27 +4,25 @@ using API.Data;
 using API.DTOs;
 using API.Entities;
 using API.Interfaces;
+using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 namespace API.Controllers;
 
-public class AccountController(DataContext context, ITokenService tokenService) : BaseAPIController
+public class AccountController(DataContext context, ITokenService tokenService,
+  IMapper mapper) : BaseAPIController
 {
   [HttpPost("register")] // account/register
 
   public async Task<ActionResult<UserDTO>> Register(RegisterDTOs registerDTOs)
   {
     if (await UserExits(registerDTOs.Username)) return BadRequest("Username is already taken.");
-    return Ok();
-    /*using var hmac = new HMACSHA512();
+    using var hmac = new HMACSHA512();
 
-    var user = new AppUser
-    {
-      UserName = registerDTOs.Username.ToLower(),
-      PasswordHash = hmac.ComputeHash(Encoding.UTF8.GetBytes(registerDTOs.Password)),
-      PasswordSalt = hmac.Key
-    };
+    var user = mapper.Map<AppUser>(registerDTOs);
+    user.PasswordHash = hmac.ComputeHash(Encoding.UTF8.GetBytes(registerDTOs.Password));
+    user.PasswordSalt = hmac.Key;
 
     context.Users.Add(user);
     await context.SaveChangesAsync();
@@ -32,8 +30,9 @@ public class AccountController(DataContext context, ITokenService tokenService) 
     return new UserDTO
     {
       Username = user.UserName,
-      Token = tokenService.CreateToken(user)
-    };*/
+      Token = tokenService.CreateToken(user),
+      KnownAs = user.KnownAs
+    };
   }
 
   [HttpPost("login")]
@@ -41,7 +40,7 @@ public class AccountController(DataContext context, ITokenService tokenService) 
   {
     var user = await context.Users
       .Include(p => p.Photos)
-        .FirstOrDefaultAsync(x => 
+        .FirstOrDefaultAsync(x =>
           x.UserName == loginDto.Username.ToLower());
 
     if (user == null) return Unauthorized("Invalid username ");
@@ -57,6 +56,7 @@ public class AccountController(DataContext context, ITokenService tokenService) 
     return new UserDTO
     {
       Username = user.UserName,
+      KnownAs = user.KnownAs,
       Token = tokenService.CreateToken(user),
       PhotoUrl = user.Photos.FirstOrDefault(x => x.IsMain)?.Url
     };
